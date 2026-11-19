@@ -1,6 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path'),{WebSocketServer}=require('ws');
 const START=[0,13,26,39],SAFE=new Set([0,8,13,21,26,34,39,47]),ORDER=[0,2,1,3],NAMES=['Red','Green','Yellow','Blue'],rooms={};
-const server=http.createServer((q,r)=>{if(q.url==='/health')return r.end('ok');r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});r.end(fs.readFileSync(path.join(__dirname,'index.html')));});
+const server=http.createServer((q,r)=>{if(q.url==='/health')return r.end('ok');r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});r.end(fs.readFileSync(path.join(__dirname,'public','index.html')));});
 const wss=new WebSocketServer({server});
 const legal=(t,i,d)=>t[i]<0?d===6:t[i]+d<=56;
 function nextTurn(rm){const on=rm.players.filter(p=>p.online).map(p=>p.seat).sort();if(!on.length)return;rm.turn=on.find(s=>s>rm.turn)??on[0];rm.phase='roll';rm.sixes=0;}
