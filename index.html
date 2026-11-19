@@ -1,0 +1,66 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Online</title>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#1d2433;color:#eee;display:flex;flex-direction:column;align-items:center;padding:10px}
+h1{margin:6px 0;font-size:24px}input,button{font-size:16px;padding:10px 14px;border-radius:8px;border:0;margin:4px}
+button{background:#4f8cff;color:#fff;cursor:pointer}button:disabled{background:#555;cursor:default}
+input{background:#2d3750;color:#fff}#game{display:flex;flex-direction:column;align-items:center;width:100%}
+canvas{width:min(96vw,600px);height:auto;background:#fff;border-radius:10px}
+#dice{font-size:44px;min-width:60px;text-align:center}.row{display:flex;align-items:center;flex-wrap:wrap;justify-content:center}
+.pl{padding:4px 10px;border-radius:14px;margin:3px;color:#000;font-weight:600}#msg{text-align:center;min-height:24px;margin:4px}
+</style></head><body>
+<h1>🎲 Ludo Online</h1>
+<div id="lobby"><div class="row"><input id="name" placeholder="Your name" maxlength="12"><button id="go">Create room</button></div></div>
+<div id="game" hidden>
+ <div class="row"><input id="link" readonly size="28"><button id="copy">Copy link</button></div>
+ <div id="pls" class="row"></div><div id="msg"></div>
+ <div class="row"><button id="start" hidden>Start game</button><button id="roll">Roll</button><div id="dice">–</div></div>
+ <canvas id="cv" width="600" height="600"></canvas>
+</div>
+<script>
+const COL=['#e53935','#43a047','#fdd835','#1e88e5'],NAMES=['Red','Green','Yellow','Blue'],START=[0,13,26,39],SAFE=[0,8,13,21,26,34,39,47],C=40;
+const PATH=[];[[1,6,1,0,5],[6,5,0,-1,6],[7,0,1,0,2],[8,1,0,1,5],[9,6,1,0,6],[14,7,0,1,2],[13,8,-1,0,5],[8,9,0,1,6],[7,14,-1,0,2],[6,13,0,-1,5],[5,8,-1,0,6],[0,7,0,-1,2]].forEach(([x,y,dx,dy,n])=>{for(let k=0;k<n;k++)PATH.push([x+dx*k,y+dy*k])});
+const HC=(s,k)=>[[1+k,7],[7,1+k],[13-k,7],[7,13-k]][s],YARD=[[0,0],[9,0],[9,9],[0,9]],YO=[[2,2],[4,2],[2,4],[4,4]],FIN=[[6,7],[7,6],[8,7],[7,8]];
+const cellOf=(s,i,p)=>p<0?[YARD[s][0]+YO[i][0],YARD[s][1]+YO[i][1]]:p<=50?PATH[(START[s]+p)%52]:p<56?HC(s,p-51):[FIN[s][0]+(i-1.5)*.1,FIN[s][1]+(i-1.5)*.1];
+const $=id=>document.getElementById(id),cv=$('cv'),g=cv.getContext('2d');
+const pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36));
+let ws,st=null,room=new URLSearchParams(location.search).get('room');
+$('name').value=localStorage.name||'';if(room)$('go').textContent='Join room '+room.toUpperCase();
+$('go').onclick=()=>{const n=$('name').value.trim()||'Player';localStorage.name=n;
+ if(!room){room=Math.random().toString(36).slice(2,7).toUpperCase();history.replaceState(0,'','?room='+room)}connect()};
+function connect(){$('lobby').hidden=true;$('game').hidden=false;$('link').value=location.href;
+ ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+ ws.onopen=()=>ws.send(JSON.stringify({t:'join',room,pid,name:localStorage.name}));
+ ws.onmessage=e=>{const d=JSON.parse(e.data);if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;return}st=d;ui()};
+ ws.onclose=()=>setTimeout(connect,1500)}
+setInterval(()=>ws&&ws.readyState===1&&ws.send('{"t":"ping"}'),25000);
+const send=o=>ws.send(JSON.stringify(o));
+$('copy').onclick=()=>{navigator.clipboard.writeText(location.href);$('copy').textContent='Copied!';setTimeout(()=>$('copy').textContent='Copy link',1500)};
+$('start').onclick=()=>send({t:'start'});$('roll').onclick=()=>send({t:'roll'});
+function ui(){
+ $('pls').innerHTML=st.players.map(p=>`<span class="pl" style="background:${COL[p.seat]};opacity:${p.online?1:.4};${st.started&&st.turn===p.seat&&st.winner==null?'outline:3px solid #fff':''}">${p.name}${p.seat===st.you?' (you)':''}</span>`).join('');
+ const my=st.started&&st.winner==null&&st.turn===st.you;
+ $('start').hidden=!(st.host&&st.players.length>1&&(!st.started||st.winner!=null));$('start').textContent=st.winner!=null?'Play again':'Start game';
+ $('roll').disabled=!(my&&st.phase==='roll');$('dice').textContent=st.dice||'–';
+ $('msg').textContent=!st.started?(st.players.length<2?'Share the link: waiting for players (2–4)…':st.host?'Press Start when everyone has joined':'Waiting for host to start…'):st.log+(my&&st.phase==='move'?' · tap a glowing token':'');
+ draw()}
+function sq(x,y,w,h,f){g.fillStyle=f;g.fillRect(x*C,y*C,w*C,h*C)}
+function tri(a,f){g.fillStyle=f;g.beginPath();a.forEach(([x,y],i)=>g[i?'lineTo':'moveTo'](x*C,y*C));g.fill()}
+function draw(){
+ g.clearRect(0,0,600,600);g.lineWidth=1;
+ YARD.forEach((y,s)=>{sq(y[0],y[1],6,6,COL[s]);sq(y[0]+1,y[1]+1,4,4,'#fff');YO.forEach(o=>{g.fillStyle=COL[s]+'55';g.beginPath();g.arc((y[0]+o[0]+.5)*C,(y[1]+o[1]+.5)*C,16,0,7);g.fill()})});
+ const box=(x,y,f)=>{sq(x,y,1,1,f);g.strokeStyle='#777';g.strokeRect(x*C,y*C,C,C)};
+ PATH.forEach(([x,y])=>box(x,y,'#fff'));
+ for(let s=0;s<4;s++){const[x,y]=PATH[START[s]];box(x,y,COL[s]);for(let k=0;k<5;k++)box(...HC(s,k),COL[s])}
+ g.fillStyle='#555';g.font='22px sans-serif';g.textAlign='center';g.textBaseline='middle';
+ SAFE.forEach(i=>{if(i%13)g.fillText('★',(PATH[i][0]+.5)*C,(PATH[i][1]+.5)*C)});
+ tri([[6,6],[6,9],[7.5,7.5]],COL[0]);tri([[6,6],[9,6],[7.5,7.5]],COL[1]);tri([[9,6],[9,9],[7.5,7.5]],COL[2]);tri([[6,9],[9,9],[7.5,7.5]],COL[3]);
+ if(!st)return;window.TK=[];const seen={};
+ for(const s in st.tokens)st.tokens[s].forEach((p,i)=>{s=+s;const[cx,cy]=cellOf(s,i,p),k=cx+','+cy,n=seen[k]=(seen[k]||0)+1;
+  const x=(cx+.5)*C+(n-1)*5,y=(cy+.5)*C-(n-1)*5,mv=s===st.you&&st.turn===s&&st.movable.includes(i);
+  g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=COL[s];g.fill();g.lineWidth=mv?5:2;g.strokeStyle=mv?'#000':'#fff';g.stroke();
+  if(mv){g.strokeStyle='#fff';g.lineWidth=2;g.stroke()}TK.push({x,y,i,mv})})}
+cv.onclick=e=>{if(!st)return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*600/r.width,y=(e.clientY-r.top)*600/r.height;
+ const t=(window.TK||[]).filter(t=>t.mv).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+ if(t&&Math.hypot(t.x-x,t.y-y)<24)send({t:'move',i:t.i})};
+draw();
+</script></body></html>
