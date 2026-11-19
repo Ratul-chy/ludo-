@@ -1,66 +1,385 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Online</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1420">
+<title>Ludo Online</title>
 <style>
-body{margin:0;font-family:system-ui,sans-serif;background:#1d2433;color:#eee;display:flex;flex-direction:column;align-items:center;padding:10px}
-h1{margin:6px 0;font-size:24px}input,button{font-size:16px;padding:10px 14px;border-radius:8px;border:0;margin:4px}
-button{background:#4f8cff;color:#fff;cursor:pointer}button:disabled{background:#555;cursor:default}
-input{background:#2d3750;color:#fff}#game{display:flex;flex-direction:column;align-items:center;width:100%}
-canvas{width:min(96vw,600px);height:auto;background:#fff;border-radius:10px}
-#dice{font-size:44px;min-width:60px;text-align:center}.row{display:flex;align-items:center;flex-wrap:wrap;justify-content:center}
-.pl{padding:4px 10px;border-radius:14px;margin:3px;color:#000;font-weight:600}#msg{text-align:center;min-height:24px;margin:4px}
-</style></head><body>
-<h1>🎲 Ludo Online</h1>
-<div id="lobby"><div class="row"><input id="name" placeholder="Your name" maxlength="12"><button id="go">Create room</button></div></div>
-<div id="game" hidden>
- <div class="row"><input id="link" readonly size="28"><button id="copy">Copy link</button></div>
- <div id="pls" class="row"></div><div id="msg"></div>
- <div class="row"><button id="start" hidden>Start game</button><button id="roll">Roll</button><div id="dice">–</div></div>
- <canvas id="cv" width="600" height="600"></canvas>
+:root{
+  --bg:#0f1420;--bg2:#1a2233;--panel:#1e2940;--panel2:#25324e;
+  --text:#eef2f9;--muted:#8b98b3;--accent:#4f8cff;
+  --red:#ef4444;--green:#22c55e;--yellow:#eab308;--blue:#3b82f6;
+  --radius:14px;--shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:radial-gradient(1200px 600px at 50% -10%,#223052 0%,var(--bg) 60%);
+  color:var(--text);display:flex;flex-direction:column;align-items:center;
+  min-height:100dvh;padding:max(10px,env(safe-area-inset-top)) 10px 20px;
+  overflow-x:hidden;-webkit-tap-highlight-color:transparent;
+}
+h1{margin:8px 0 4px;font-size:clamp(20px,5vw,28px);letter-spacing:.5px;
+   background:linear-gradient(90deg,#4f8cff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:13px;margin-bottom:8px}
+
+button,input{font:inherit}
+button{
+  padding:11px 16px;border-radius:12px;border:0;cursor:pointer;
+  background:linear-gradient(180deg,#5b96ff,#3b76e0);color:#fff;font-weight:600;
+  box-shadow:0 2px 0 #2c5bb8,0 6px 16px rgba(79,140,255,.25);
+  transition:transform .08s ease,box-shadow .15s ease,filter .15s ease;
+  min-height:44px;
+}
+button:hover{filter:brightness(1.06)}
+button:active{transform:translateY(2px);box-shadow:0 0 0 #2c5bb8,0 3px 10px rgba(79,140,255,.2)}
+button:disabled{background:#2a3550;box-shadow:none;color:#5f6d8a;cursor:not-allowed;transform:none;filter:none}
+input{
+  padding:11px 14px;border-radius:12px;border:1px solid #2e3b5a;
+  background:var(--panel);color:var(--text);min-height:44px;outline:none;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.18)}
+input[readonly]{color:var(--muted)}
+
+#lobby{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:20px;width:100%;max-width:420px}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border-radius:var(--radius);
+      box-shadow:var(--shadow);padding:16px;width:100%;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
+
+#game{display:flex;flex-direction:column;align-items:center;width:100%;max-width:760px;gap:10px}
+.topbar{display:flex;gap:8px;align-items:center;width:100%;background:var(--panel);padding:8px 12px;
+        border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap;justify-content:space-between}
+.room-tag{font-weight:700;letter-spacing:1px;color:#a9c4ff;font-size:13px}
+.pill{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:999px;background:#0e1727;border:1px solid #22304a}
+.pill.on{color:#7ee29b;border-color:#1f4d33;background:#0f2a1c}
+.pill.off{color:#ff9a9a;border-color:#5a2a2a;background:#2a1313}
+
+#pls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%}
+.pl{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;
+  background:var(--panel);border:1px solid #26344f;font-size:14px;min-width:0;
+  transition:transform .15s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.pl .dot{width:14px;height:14px;border-radius:50%;flex:0 0 14px;box-shadow:0 0 0 2px rgba(255,255,255,.15) inset}
+.pl .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.pl .meta{color:var(--muted);font-size:11px;margin-left:auto}
+.pl.turn{border-color:#fff;box-shadow:0 0 0 2px #fff inset,0 0 18px rgba(255,255,255,.15);animation:pulse 1.6s ease-in-out infinite}
+.pl.off{opacity:.45}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px #fff inset,0 0 10px rgba(255,255,255,.08)}50%{box-shadow:0 0 0 2px #fff inset,0 0 24px rgba(255,255,255,.25)}}
+
+.board-wrap{position:relative;width:100%;display:flex;justify-content:center}
+canvas{width:min(94vw,600px);height:auto;border-radius:18px;background:#fff;
+       box-shadow:0 20px 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.05);
+       touch-action:manipulation}
+
+.controls{display:flex;align-items:center;gap:14px;background:var(--panel);padding:12px 16px;
+          border-radius:var(--radius);box-shadow:var(--shadow);width:100%;justify-content:center}
+.dice{
+  width:56px;height:56px;border-radius:14px;background:linear-gradient(160deg,#ffffff,#e7ecf6);
+  color:#0f1420;display:grid;place-items:center;font-size:30px;font-weight:800;
+  box-shadow:0 4px 0 #c8d0e0,0 8px 20px rgba(0,0,0,.35);
+  transition:transform .12s ease;
+}
+.dice.rolling{animation:roll .6s cubic-bezier(.5,0,.2,1)}
+@keyframes roll{
+  0%{transform:rotate(0) scale(1)}
+  25%{transform:rotate(90deg) scale(1.08)}
+  50%{transform:rotate(180deg) scale(.95)}
+  75%{transform:rotate(270deg) scale(1.05)}
+  100%{transform:rotate(360deg) scale(1)}
+}
+#msg{text-align:center;min-height:22px;font-size:14px;color:#cfd8ea;width:100%;max-width:560px}
+
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+  background:#111a2b;border:1px solid #2a3a5c;color:#e6eeff;padding:10px 16px;border-radius:12px;
+  font-size:14px;opacity:0;pointer-events:none;transition:all .25s ease;z-index:10;box-shadow:var(--shadow);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (min-width:720px){
+  #pls{grid-template-columns:repeat(4,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<h1>🎲 LUDO ONLINE</h1>
+<div class="sub">Play with friends — share the room link</div>
+
+<div id="lobby">
+  <div class="card">
+    <input id="name" placeholder="Your name" maxlength="12" autocomplete="off">
+    <button id="go">Create room</button>
+  </div>
 </div>
+
+<div id="game" hidden>
+  <div class="topbar">
+    <span class="room-tag" id="roomTag">ROOM —</span>
+    <div class="row" style="flex:0 0 auto;width:auto;gap:6px">
+      <span class="pill" id="connPill">●</span>
+      <span class="pill" id="countPill">0 players</span>
+      <button id="copy" style="padding:8px 12px;min-height:36px;font-size:13px">Copy link</button>
+    </div>
+  </div>
+
+  <div id="pls"></div>
+  <div id="msg"></div>
+
+  <div class="controls">
+    <button id="start" hidden>Start game</button>
+    <button id="roll" disabled>Roll</button>
+    <div class="dice" id="dice">–</div>
+  </div>
+
+  <div class="board-wrap">
+    <canvas id="cv" width="600" height="600"></canvas>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-const COL=['#e53935','#43a047','#fdd835','#1e88e5'],NAMES=['Red','Green','Yellow','Blue'],START=[0,13,26,39],SAFE=[0,8,13,21,26,34,39,47],C=40;
-const PATH=[];[[1,6,1,0,5],[6,5,0,-1,6],[7,0,1,0,2],[8,1,0,1,5],[9,6,1,0,6],[14,7,0,1,2],[13,8,-1,0,5],[8,9,0,1,6],[7,14,-1,0,2],[6,13,0,-1,5],[5,8,-1,0,6],[0,7,0,-1,2]].forEach(([x,y,dx,dy,n])=>{for(let k=0;k<n;k++)PATH.push([x+dx*k,y+dy*k])});
-const HC=(s,k)=>[[1+k,7],[7,1+k],[13-k,7],[7,13-k]][s],YARD=[[0,0],[9,0],[9,9],[0,9]],YO=[[2,2],[4,2],[2,4],[4,4]],FIN=[[6,7],[7,6],[8,7],[7,8]];
-const cellOf=(s,i,p)=>p<0?[YARD[s][0]+YO[i][0],YARD[s][1]+YO[i][1]]:p<=50?PATH[(START[s]+p)%52]:p<56?HC(s,p-51):[FIN[s][0]+(i-1.5)*.1,FIN[s][1]+(i-1.5)*.1];
-const $=id=>document.getElementById(id),cv=$('cv'),g=cv.getContext('2d');
+(() => {
+const COL=['#ef4444','#22c55e','#eab308','#3b82f6'],NAMES=['Red','Green','Yellow','Blue'];
+const START=[0,13,26,39],SAFE=[0,8,13,21,26,34,39,47],C=40;
+const PATH=[];
+[[1,6,1,0,5],[6,5,0,-1,6],[7,0,1,0,2],[8,1,0,1,5],[9,6,1,0,6],[14,7,0,1,2],
+ [13,8,-1,0,5],[8,9,0,1,6],[7,14,-1,0,2],[6,13,0,-1,5],[5,8,-1,0,6],[0,7,0,-1,2]]
+ .forEach(([x,y,dx,dy,n])=>{for(let k=0;k<n;k++)PATH.push([x+dx*k,y+dy*k])});
+const HC=(s,k)=>[[1+k,7],[7,1+k],[13-k,7],[7,13-k]][s];
+const YARD=[[0,0],[9,0],[9,9],[0,9]],YO=[[2,2],[4,2],[2,4],[4,4]],FIN=[[6,7],[7,6],[8,7],[7,8]];
+const cellOf=(s,i,p)=>p<0?[YARD[s][0]+YO[i][0],YARD[s][1]+YO[i][1]]
+  :p<=50?PATH[(START[s]+p)%52]
+  :p<56?HC(s,p-51)
+  :[FIN[s][0]+(i-1.5)*.1,FIN[s][1]+(i-1.5)*.1];
+
+const $=id=>document.getElementById(id);
+const cv=$('cv'),g=cv.getContext('2d');
 const pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36));
-let ws,st=null,room=new URLSearchParams(location.search).get('room');
-$('name').value=localStorage.name||'';if(room)$('go').textContent='Join room '+room.toUpperCase();
-$('go').onclick=()=>{const n=$('name').value.trim()||'Player';localStorage.name=n;
- if(!room){room=Math.random().toString(36).slice(2,7).toUpperCase();history.replaceState(0,'','?room='+room)}connect()};
-function connect(){$('lobby').hidden=true;$('game').hidden=false;$('link').value=location.href;
- ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
- ws.onopen=()=>ws.send(JSON.stringify({t:'join',room,pid,name:localStorage.name}));
- ws.onmessage=e=>{const d=JSON.parse(e.data);if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;return}st=d;ui()};
- ws.onclose=()=>setTimeout(connect,1500)}
+let ws=null,st=null,lastSeq=-1,anim=null,prevTokens={},firstView=true;
+let room=new URLSearchParams(location.search).get('room');
+
+$('name').value=localStorage.name||'';
+if(room)$('go').textContent='Join room '+room.toUpperCase();
+$('go').onclick=()=>{
+  const n=$('name').value.trim()||'Player';
+  localStorage.name=n;
+  if(!room){room=Math.random().toString(36).slice(2,7).toUpperCase();history.replaceState(0,'','?room='+room)}
+  $('roomTag').textContent='ROOM '+room.toUpperCase();
+  connect();
+};
+
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2200)}
+
+function setConn(ok){const p=$('connPill');p.textContent=ok?'● Online':'● Reconnecting…';p.classList.toggle('on',ok);p.classList.toggle('off',!ok)}
+
+function connect(){
+  $('lobby').hidden=true;$('game').hidden=false;
+  $('link')?.remove();
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+  ws.onopen=()=>{setConn(true);ws.send(JSON.stringify({t:'join',room,pid,name:localStorage.name}))};
+  ws.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;toast(d.err);return}
+    if(typeof d.seq==='number'&&d.seq<lastSeq)return;
+    lastSeq=d.seq??lastSeq;
+    handleState(d);
+  };
+  ws.onclose=()=>{setConn(false);setTimeout(connect,1500)};
+}
+
 setInterval(()=>ws&&ws.readyState===1&&ws.send('{"t":"ping"}'),25000);
-const send=o=>ws.send(JSON.stringify(o));
-$('copy').onclick=()=>{navigator.clipboard.writeText(location.href);$('copy').textContent='Copied!';setTimeout(()=>$('copy').textContent='Copy link',1500)};
-$('start').onclick=()=>send({t:'start'});$('roll').onclick=()=>send({t:'roll'});
+const send=o=>ws&&ws.readyState===1&&ws.send(JSON.stringify(o));
+
+$('copy').onclick=()=>{navigator.clipboard.writeText(location.href).then(()=>{
+  $('copy').textContent='Copied!';setTimeout(()=>$('copy').textContent='Copy link',1500);
+},()=>toast('Copy failed — copy the URL manually'))};
+$('start').onclick=()=>send({t:'start'});
+$('roll').onclick=()=>{
+  if($('roll').disabled)return;
+  $('roll').disabled=true;
+  const d=$('dice');d.classList.remove('rolling');void d.offsetWidth;d.classList.add('rolling');
+  send({t:'roll'});
+};
+
+/* ---------- state handling ---------- */
+function handleState(s){
+  const prev=st;
+  st=s;
+
+  // detect transitions for toasts
+  if(prev){
+    if(s.winner!=null&&prev.winner==null)toast('🏆 '+(NAMES[s.winner])+' wins!');
+    if(s.turn!==prev.turn&&s.winner==null&&s.started&&s.turn===s.you)toast('Your turn');
+    if(prev.dice!==s.dice&&s.dice) { /* dice already animated locally */ }
+  }
+  // capture detection: token that was on board disappears (set to -1) for another player
+  if(prev&&prev.tokens&&s.tokens){
+    let captured=false;
+    for(const seat in s.tokens){
+      if(+seat===s.you)continue;
+      prev.tokens[seat].forEach((q,i)=>{if(q>=0&&q<=50&&s.tokens[seat][i]===-1)captured=true});
+    }
+    if(captured)toast('Opponent captured!');
+  }
+  // token-home celebration
+  if(prev&&prev.tokens&&s.tokens){
+    for(const seat in s.tokens){
+      prev.tokens[seat].forEach((q,i)=>{if(q!==56&&s.tokens[seat][i]===56&&+seat===s.you)toast('Token home! 🎉')});
+    }
+  }
+
+  ui();
+
+  // animate a single token move we initiated
+  if(prev&&prev.tokens&&s.tokens&&s.you!=null){
+    const myPrev=prev.tokens[s.you]||[], myNew=s.tokens[s.you]||[];
+    for(let i=0;i<4;i++){
+      if(myPrev[i]!==myNew[i]){
+        anim={seat:s.you,idx:i,from:myPrev[i],to:myNew[i],start:performance.now(),dur:Math.max(220,Math.min(700,60*Math.abs(myNew[i]-myPrev[i])+120))};
+        requestAnimationFrame(tick);
+        break;
+      }
+    }
+  }
+}
+
 function ui(){
- $('pls').innerHTML=st.players.map(p=>`<span class="pl" style="background:${COL[p.seat]};opacity:${p.online?1:.4};${st.started&&st.turn===p.seat&&st.winner==null?'outline:3px solid #fff':''}">${p.name}${p.seat===st.you?' (you)':''}</span>`).join('');
- const my=st.started&&st.winner==null&&st.turn===st.you;
- $('start').hidden=!(st.host&&st.players.length>1&&(!st.started||st.winner!=null));$('start').textContent=st.winner!=null?'Play again':'Start game';
- $('roll').disabled=!(my&&st.phase==='roll');$('dice').textContent=st.dice||'–';
- $('msg').textContent=!st.started?(st.players.length<2?'Share the link: waiting for players (2–4)…':st.host?'Press Start when everyone has joined':'Waiting for host to start…'):st.log+(my&&st.phase==='move'?' · tap a glowing token':'');
- draw()}
-function sq(x,y,w,h,f){g.fillStyle=f;g.fillRect(x*C,y*C,w*C,h*C)}
+  const s=st;
+  $('countPill').textContent=s.players.length+'/4 players';
+  $('pls').innerHTML=s.players.map(p=>{
+    const isTurn=s.started&&s.winner==null&&s.turn===p.seat;
+    return `<div class="pl ${isTurn?'turn':''} ${p.online?'':'off'}">
+      <span class="dot" style="background:${COL[p.seat]}"></span>
+      <span class="nm">${esc(p.name)}${p.seat===s.you?' (you)':''}</span>
+      <span class="meta">${NAMES[p.seat]}${isTurn?' · turn':''}</span>
+    </div>`;
+  }).join('');
+
+  const my=s.started&&s.winner==null&&s.turn===s.you;
+  $('start').hidden=!(s.host&&s.players.length>1&&(!s.started||s.winner!=null));
+  $('start').textContent=s.winner!=null?'Play again':'Start game';
+  $('roll').disabled=!(my&&s.phase==='roll');
+  if(s.dice&&s.dice!==0)$('dice').textContent=s.dice;
+
+  $('msg').textContent=!s.started
+    ?(s.players.length<2?'Waiting for players (2–4)…':(s.host?'Press Start when ready':'Waiting for host…'))
+    :(s.log||'')+(my&&s.phase==='move'?' · tap a glowing token':'');
+
+  draw();
+}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- drawing ---------- */
+const sq=(x,y,w,h,f)=>{g.fillStyle=f;g.fillRect(x*C,y*C,w*C,h*C)};
 function tri(a,f){g.fillStyle=f;g.beginPath();a.forEach(([x,y],i)=>g[i?'lineTo':'moveTo'](x*C,y*C));g.fill()}
+
+function tokenPos(seat,idx,pos){return cellOf(seat,idx,pos)}
+
 function draw(){
- g.clearRect(0,0,600,600);g.lineWidth=1;
- YARD.forEach((y,s)=>{sq(y[0],y[1],6,6,COL[s]);sq(y[0]+1,y[1]+1,4,4,'#fff');YO.forEach(o=>{g.fillStyle=COL[s]+'55';g.beginPath();g.arc((y[0]+o[0]+.5)*C,(y[1]+o[1]+.5)*C,16,0,7);g.fill()})});
- const box=(x,y,f)=>{sq(x,y,1,1,f);g.strokeStyle='#777';g.strokeRect(x*C,y*C,C,C)};
- PATH.forEach(([x,y])=>box(x,y,'#fff'));
- for(let s=0;s<4;s++){const[x,y]=PATH[START[s]];box(x,y,COL[s]);for(let k=0;k<5;k++)box(...HC(s,k),COL[s])}
- g.fillStyle='#555';g.font='22px sans-serif';g.textAlign='center';g.textBaseline='middle';
- SAFE.forEach(i=>{if(i%13)g.fillText('★',(PATH[i][0]+.5)*C,(PATH[i][1]+.5)*C)});
- tri([[6,6],[6,9],[7.5,7.5]],COL[0]);tri([[6,6],[9,6],[7.5,7.5]],COL[1]);tri([[9,6],[9,9],[7.5,7.5]],COL[2]);tri([[6,9],[9,9],[7.5,7.5]],COL[3]);
- if(!st)return;window.TK=[];const seen={};
- for(const s in st.tokens)st.tokens[s].forEach((p,i)=>{s=+s;const[cx,cy]=cellOf(s,i,p),k=cx+','+cy,n=seen[k]=(seen[k]||0)+1;
-  const x=(cx+.5)*C+(n-1)*5,y=(cy+.5)*C-(n-1)*5,mv=s===st.you&&st.turn===s&&st.movable.includes(i);
-  g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=COL[s];g.fill();g.lineWidth=mv?5:2;g.strokeStyle=mv?'#000':'#fff';g.stroke();
-  if(mv){g.strokeStyle='#fff';g.lineWidth=2;g.stroke()}TK.push({x,y,i,mv})})}
-cv.onclick=e=>{if(!st)return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*600/r.width,y=(e.clientY-r.top)*600/r.height;
- const t=(window.TK||[]).filter(t=>t.mv).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
- if(t&&Math.hypot(t.x-x,t.y-y)<24)send({t:'move',i:t.i})};
+  g.clearRect(0,0,600,600);g.lineWidth=1;
+  YARD.forEach((y,s)=>{
+    sq(y[0],y[1],6,6,COL[s]);sq(y[0]+1,y[1]+1,4,4,'#fff');
+    YO.forEach(o=>{
+      g.fillStyle=COL[s]+'55';g.beginPath();
+      g.arc((y[0]+o[0]+.5)*C,(y[1]+o[1]+.5)*C,16,0,7);g.fill();
+    });
+  });
+  const box=(x,y,f)=>{sq(x,y,1,1,f);g.strokeStyle='#9aa3b8';g.strokeRect(x*C,y*C,C,C)};
+  PATH.forEach(([x,y])=>box(x,y,'#fff'));
+  for(let s=0;s<4;s++){
+    const[x,y]=PATH[START[s]];box(x,y,COL[s]);
+    for(let k=0;k<5;k++)box(...HC(s,k),COL[s]);
+  }
+  g.fillStyle='#5b6580';g.font='20px system-ui,sans-serif';g.textAlign='center';g.textBaseline='middle';
+  SAFE.forEach(i=>{if(i%13)g.fillText('★',(PATH[i][0]+.5)*C,(PATH[i][1]+.5)*C)});
+  tri([[6,6],[6,9],[7.5,7.5]],COL[0]);
+  tri([[6,6],[9,6],[7.5,7.5]],COL[1]);
+  tri([[9,6],[9,9],[7.5,7.5]],COL[2]);
+  tri([[6,9],[9,9],[7.5,7.5]],COL[3]);
+
+  if(!st)return;
+  window.TK=[];
+  const seen={};
+  for(const seat in st.tokens){
+    const s=+seat;
+    st.tokens[s].forEach((pos,i)=>{
+      let [cx,cy]=tokenPos(s,i,pos);
+      // override for animated token
+      if(anim&&anim.seat===s&&anim.idx===i){
+        const t=Math.min(1,(performance.now()-anim.start)/anim.dur);
+        const e=easeOutQuad(t);
+        const [fx,fy]=tokenPos(s,i,anim.from);
+        const steps=Math.max(1,Math.abs(anim.to-anim.from));
+        // step-by-step interpolation through intermediate cells
+        const total=anim.to-anim.from;
+        const cur=anim.from+total*e;
+        const stepFrac=cur-Math.floor(cur);
+        const baseIdx=Math.floor(cur);
+        const [bx,by]=tokenPos(s,i,baseIdx);
+        const [nx,ny]=tokenPos(s,i,baseIdx+1);
+        cx=bx+(nx-bx)*stepFrac;
+        cy=by+(ny-by)*stepFrac;
+      }
+      const k=cx+','+cy,n=seen[k]=(seen[k]||0)+1;
+      const x=(cx+.5)*C+(n-1)*5,y=(cy+.5)*C-(n-1)*5;
+      const mv=st.started&&st.turn===s&&st.movable.includes(i);
+      // shadow
+      g.beginPath();g.arc(x,y+2,14,0,7);g.fillStyle='rgba(0,0,0,.25)';g.fill();
+      // body
+      g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=COL[s];g.fill();
+      // highlight
+      const grd=g.createRadialGradient(x-4,y-5,2,x,y,14);
+      grd.addColorStop(0,'rgba(255,255,255,.85)');
+      grd.addColorStop(.5,'rgba(255,255,255,.15)');
+      grd.addColorStop(1,'rgba(255,255,255,0)');
+      g.beginPath();g.arc(x,y,14,0,7);g.fillStyle=grd;g.fill();
+      // ring
+      g.lineWidth=mv?4:2;g.strokeStyle=mv?'#000':'#fff';g.stroke();
+      if(mv){
+        g.beginPath();g.arc(x,y,18+Math.sin(performance.now()/220)*2,0,7);
+        g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=2;g.stroke();
+      }
+      TK.push({x,y,i,mv});
+    });
+  }
+}
+
+const easeOutQuad=t=>1-(1-t)*(1-t);
+function tick(){
+  if(anim){
+    draw();
+    if(performance.now()-anim.start<anim.dur)requestAnimationFrame(tick);
+    else{anim=null;draw();ui();}
+  }
+}
+// idle animation for selectable ring
+setInterval(()=>{if(!anim&&st&&st.started)draw()},400);
+
+/* ---------- click ---------- */
+cv.onclick=e=>{
+  if(!st||anim)return;
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)*600/r.width,y=(e.clientY-r.top)*600/r.height;
+  const t=(window.TK||[]).filter(t=>t.mv)
+    .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+  if(t&&Math.hypot(t.x-x,t.y-y)<26){
+    // optimistically lock roll while awaiting server response
+    $('roll').disabled=true;
+    send({t:'move',i:t.i});
+  }
+};
+
 draw();
-</script></body></html>
+})();
+</script>
+</body>
+</html>
