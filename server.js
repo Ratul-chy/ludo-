@@ -14,7 +14,7 @@ function nextTurn(rm){
 
 function view(rm,p){
   return{
-    code:rm.code,you:p.seat,host:rm.players[0]===p,seq:rm.seq,
+    code:rm.code,you:p.seat,host:rm.hostId===p.pid,seq:rm.seq,
     players:rm.players.map(x=>({seat:x.seat,name:x.name,online:x.online})),
     started:rm.started,turn:rm.turn,dice:rm.dice,phase:rm.phase,
     tokens:rm.tokens,winner:rm.winner,log:rm.log,
@@ -24,6 +24,16 @@ function view(rm,p){
 }
 function send(rm){rm.seq++;rm.players.forEach(p=>p.online&&p.ws&&p.ws.readyState===1&&p.ws.send(JSON.stringify(view(rm,p))));}
 
+function assignHost(rm){
+  // host is the lowest-seat online player; if none online, keep current hostId (or null)
+  const online=rm.players.filter(x=>x.online).sort((a,b)=>a.seat-b.seat);
+  if(online.length){
+    if(!rm.hostId||!rm.players.some(x=>x.pid===rm.hostId&&x.online)){
+      rm.hostId=online[0].pid;
+    }
+  }
+}
+
 wss.on('connection',ws=>{
   ws.on('message',raw=>{
     let m;try{m=JSON.parse(raw)}catch{return}
@@ -32,9 +42,9 @@ wss.on('connection',ws=>{
     if(m.t==='join'){
       const code=String(m.room||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
       if(!code)return;
-      const rm=rooms[code]??={code,seq:0,players:[],started:false,turn:0,dice:0,phase:'roll',sixes:0,tokens:{},winner:null,log:''};
+      const rm=rooms[code]??={code,seq:0,hostId:null,players:[],started:false,turn:0,dice:0,phase:'roll',sixes:0,tokens:{},winner:null,log:''};
       let p=rm.players.find(x=>x.pid===m.pid);
-      if(p){p.ws=ws;p.online=true;}
+      if(p){p.ws=ws;p.online=true;p.name=String(m.name||p.name||'Player').slice(0,12);}
       else{
         if(rm.started&&rm.winner==null)return ws.send(JSON.stringify({err:'Game already started'}));
         if(rm.players.length>=4)return ws.send(JSON.stringify({err:'Room is full (4 players max)'}));
@@ -44,15 +54,21 @@ wss.on('connection',ws=>{
         rm.players.push(p);
       }
       ws.ctx={rm,p};
+      assignHost(rm);
       return send(rm);
     }
 
     const c=ws.ctx;if(!c)return;const{rm,p}=c;
 
-    if(m.t==='start'&&rm.players[0]===p&&rm.players.length>1&&(!rm.started||rm.winner!=null)){
-      rm.tokens={};rm.players.forEach(x=>rm.tokens[x.seat]=[-1,-1,-1,-1]);
+    if(m.t==='start'){
+      if(!rm.players.some(x=>x.online))return;
+      if(rm.hostId!==p.pid)return;                 // only current host can start
+      if(rm.players.length<2)return;               // need 2+
+      if(rm.started&&rm.winner==null)return;       // game already running
+      rm.tokens={};
+      rm.players.forEach(x=>rm.tokens[x.seat]=[-1,-1,-1,-1]);
       rm.started=true;rm.winner=null;
-      rm.turn=Math.min(...rm.players.map(x=>x.seat));
+      rm.turn=Math.min(...rm.players.filter(x=>x.online).map(x=>x.seat));
       rm.phase='roll';rm.sixes=0;rm.dice=0;rm.log='Game started!';
       return send(rm);
     }
@@ -95,6 +111,7 @@ wss.on('connection',ws=>{
     const{rm,p}=c;
     p.online=false;
     if(rm.started&&rm.winner==null&&rm.turn===p.seat)nextTurn(rm);
+    assignHost(rm);
     send(rm);
     setTimeout(()=>{if(!rm.players.some(x=>x.online))delete rooms[rm.code];},36e5);
   });
