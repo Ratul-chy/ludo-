@@ -14,7 +14,7 @@ function nextTurn(rm){
 
 function view(rm,p){
   return{
-    code:rm.code,you:p.seat,host:rm.hostId===p.pid,seq:rm.seq,
+    code:rm.code,you:p.seat,host:rm.hostId===p.pid,seq:rm.seq,rolls:rm.rolls||0,
     players:rm.players.map(x=>({seat:x.seat,name:x.name,online:x.online})),
     started:rm.started,turn:rm.turn,dice:rm.dice,phase:rm.phase,
     tokens:rm.tokens,winner:rm.winner,log:rm.log,
@@ -77,7 +77,7 @@ wss.on('connection',ws=>{
     const t=rm.tokens[p.seat];
 
     if(m.t==='roll'&&rm.phase==='roll'){
-      const d=1+Math.floor(Math.random()*6);rm.dice=d;
+      const d=1+Math.floor(Math.random()*6);rm.dice=d;rm.rolls=(rm.rolls||0)+1;
       rm.sixes=d===6?rm.sixes+1:0;
       if(rm.sixes===3){rm.log=`${p.name} rolled three 6s — turn lost`;nextTurn(rm);}
       else if(![0,1,2,3].some(i=>legal(t,i,d))){rm.log=`${p.name} rolled ${d} — no move`;nextTurn(rm);}

@@ -71,26 +71,25 @@ input[readonly]{color:var(--muted)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 2px #fff inset,0 0 10px rgba(255,255,255,.08)}50%{box-shadow:0 0 0 2px #fff inset,0 0 24px rgba(255,255,255,.25)}}
 
 .board-wrap{position:relative;width:100%;display:flex;justify-content:center}
-canvas{width:min(94vw,600px);height:auto;border-radius:18px;background:#fff;
+.bw{position:relative;width:min(94vw,600px);--d:60px}
+canvas{width:100%;height:auto;display:block;border-radius:18px;background:#fff;
        box-shadow:0 20px 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.05);
        touch-action:manipulation}
 
 .controls{display:flex;align-items:center;gap:14px;background:var(--panel);padding:12px 16px;
           border-radius:var(--radius);box-shadow:var(--shadow);width:100%;justify-content:center;flex-wrap:wrap}
-.dice{
-  width:56px;height:56px;border-radius:14px;background:linear-gradient(160deg,#ffffff,#e7ecf6);
-  color:#0f1420;display:grid;place-items:center;font-size:30px;font-weight:800;
-  box-shadow:0 4px 0 #c8d0e0,0 8px 20px rgba(0,0,0,.35);
-  transition:transform .12s ease;
-}
-.dice.rolling{animation:roll .6s cubic-bezier(.5,0,.2,1)}
-@keyframes roll{
-  0%{transform:rotate(0) scale(1)}
-  25%{transform:rotate(90deg) scale(1.08)}
-  50%{transform:rotate(180deg) scale(.95)}
-  75%{transform:rotate(270deg) scale(1.05)}
-  100%{transform:rotate(360deg) scale(1)}
-}
+#dwrap{position:absolute;left:50%;top:50%;width:var(--d);height:var(--d);margin:calc(var(--d)/-2) 0 0 calc(var(--d)/-2);z-index:3;user-select:none;-webkit-user-select:none}
+#dwrap::before{content:'';position:absolute;inset:-12px;border-radius:50%}
+#dwrap.can{cursor:pointer}#dwrap.can::after{content:'';position:absolute;inset:-7px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.75),0 0 18px 4px rgba(255,255,255,.5);animation:glow 1.3s ease-in-out infinite;pointer-events:none}
+@keyframes glow{50%{opacity:.3}}
+#dsh{position:absolute;left:8%;right:8%;bottom:-10%;height:20%;border-radius:50%;background:rgba(0,0,0,.45);filter:blur(4px)}
+#dscene{position:relative;width:100%;height:100%;perspective:calc(var(--d)*5);transition:transform .15s}
+#dwrap.can:hover #dscene{transform:scale(1.1)}#dwrap.can:active #dscene{transform:scale(.93)}
+#dbody,#cube{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+.f{position:absolute;inset:0;border-radius:calc(var(--d)*.2);background:linear-gradient(145deg,#fff 0%,#f2eddf 60%,#d9d2bf 100%);box-shadow:inset 0 0 calc(var(--d)*.14) rgba(0,0,0,.22),inset 0 calc(var(--d)*.03) calc(var(--d)*.03) rgba(255,255,255,.9);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:calc(var(--d)*.15);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.f i{margin:auto;width:calc(var(--d)*.17);height:calc(var(--d)*.17);border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#0d0d0d)}
+.f1{transform:translateZ(calc(var(--d)/2))}.f6{transform:rotateY(180deg) translateZ(calc(var(--d)/2))}.f3{transform:rotateY(90deg) translateZ(calc(var(--d)/2))}
+.f4{transform:rotateY(-90deg) translateZ(calc(var(--d)/2))}.f2{transform:rotateX(90deg) translateZ(calc(var(--d)/2))}.f5{transform:rotateX(-90deg) translateZ(calc(var(--d)/2))}
 #msg{text-align:center;min-height:22px;font-size:14px;color:#cfd8ea;width:100%;max-width:560px}
 
 .toast{
@@ -136,11 +135,11 @@ canvas{width:min(94vw,600px);height:auto;border-radius:18px;background:#fff;
   <div class="controls">
     <button id="start" hidden>Start game</button>
     <button id="roll" disabled>Roll</button>
-    <div class="dice" id="dice">–</div>
   </div>
 
   <div class="board-wrap">
-    <canvas id="cv" width="600" height="600"></canvas>
+    <div class="bw" id="bw"><canvas id="cv" width="600" height="600"></canvas>
+<div id="dwrap" title="Roll"><div id="dsh"></div><div id="dscene"><div id="dbody"><div id="cube"></div></div></div></div></div>
   </div>
 </div>
 
@@ -155,7 +154,7 @@ const PATH=[];
  [13,8,-1,0,5],[8,9,0,1,6],[7,14,-1,0,2],[6,13,0,-1,5],[5,8,-1,0,6],[0,7,0,-1,2]]
  .forEach(function(a){var x=a[0],y=a[1],dx=a[2],dy=a[3],n=a[4];for(var k=0;k<n;k++)PATH.push([x+dx*k,y+dy*k])});
 const HC=function(s,k){return [[1+k,7],[7,1+k],[13-k,7],[7,13-k]][s];};
-const YARD=[[0,0],[9,0],[9,9],[0,9]],YO=[[2,2],[4,2],[2,4],[4,4]],FIN=[[6,7],[7,6],[8,7],[7,8]];
+const YARD=[[0,0],[9,0],[9,9],[0,9]],YO=[[1.5,1.5],[3.5,1.5],[1.5,3.5],[3.5,3.5]],FIN=[[5.8,7],[7,5.8],[8.2,7],[7,8.2]];
 function cellOf(s,i,p){
   if(p<0)return[YARD[s][0]+YO[i][0],YARD[s][1]+YO[i][1]];
   if(p<=50)return PATH[(START[s]+p)%52];
@@ -166,7 +165,7 @@ function cellOf(s,i,p){
 var $=function(id){return document.getElementById(id);};
 var cv=$('cv'),g=cv.getContext('2d');
 var pid=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2)+Date.now().toString(36));
-var ws=null,st=null,lastSeq=-1,anim=null;
+var ws=null,st=null,lastSeq=-1,anim=null,lastRolls=null,rolling=false;
 var room=new URLSearchParams(location.search).get('room');
 
 $('name').value=localStorage.name||'';
@@ -188,7 +187,7 @@ function connect(){
   ws.onopen=function(){setConn(true);ws.send(JSON.stringify({t:'join',room:room,pid:pid,name:localStorage.name}));};
   ws.onmessage=function(e){
     var d=JSON.parse(e.data);
-    if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;toast(d.err);return;}
+    if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;toast(d.err);if(rolling&&!D.res)endRoll();return;}
     if(typeof d.seq==='number'&&d.seq<lastSeq)return;
     lastSeq=d.seq!=null?d.seq:lastSeq;
     handleState(d);
@@ -205,15 +204,12 @@ $('copy').onclick=function(){
   },function(){toast('Copy failed — copy the URL manually');});
 };
 $('start').onclick=function(){send({t:'start'});};
-$('roll').onclick=function(){
-  if($('roll').disabled)return;
-  $('roll').disabled=true;
-  var d=$('dice');d.classList.remove('rolling');void d.offsetWidth;d.classList.add('rolling');
-  send({t:'roll'});
-};
+function doRoll(){if(!st||rolling||$('roll').disabled)return;$('roll').disabled=true;startRoll(0);send({t:'roll'});}
+$('roll').onclick=doRoll;
 
 function handleState(s){
   var prev=st;st=s;
+  if(lastRolls===null)lastRolls=s.rolls;else if(s.rolls!==lastRolls){lastRolls=s.rolls;startRoll(s.dice);}
   if(prev){
     if(s.winner!=null&&prev.winner==null)toast('🏆 '+NAMES[s.winner]+' wins!');
     if(s.turn!==prev.turn&&s.winner==null&&s.started&&s.turn===s.you)toast('Your turn');
@@ -260,8 +256,9 @@ function ui(){
   $('start').hidden=!showStart;
   if(showStart)$('start').textContent=(s.winner!=null)?'Play again':'Start game';
   var my=s.started&&s.winner==null&&s.turn===s.you;
-  $('roll').disabled=!(my&&s.phase==='roll');
-  if(s.dice&&s.dice!==0)$('dice').textContent=s.dice;
+  $('roll').disabled=!(my&&s.phase==='roll')||rolling;
+  dw.classList.toggle('can',!!(my&&s.phase==='roll')&&!rolling);
+  if(!rolling)dShow(s.dice);
   $('msg').textContent=!s.started
     ?(s.players.length<2?'Waiting for players (2–4)…':(s.host?'Press Start when ready':'Waiting for host…'))
     :((s.log||'')+(my&&s.phase==='move'?' · tap a glowing token':''));
@@ -278,10 +275,10 @@ function draw(){
     sq(y[0],y[1],6,6,COL[s]);sq(y[0]+1,y[1]+1,4,4,'#fff');
     YO.forEach(function(o){
       g.fillStyle=COL[s]+'55';g.beginPath();
-      g.arc((y[0]+o[0]+.5)*C,(y[1]+o[1]+.5)*C,16,0,7);g.fill();
+      g.arc((y[0]+o[0]+.5)*C,(y[1]+o[1]+.5)*C,17,0,7);g.fill();g.lineWidth=2;g.strokeStyle=COL[s];g.stroke();
     });
   });
-  function box(x,y,f){sq(x,y,1,1,f);g.strokeStyle='#9aa3b8';g.strokeRect(x*C,y*C,C,C);}
+  function box(x,y,f){sq(x,y,1,1,f);g.lineWidth=1;g.strokeStyle='#b4bbcb';g.strokeRect(x*C,y*C,C,C);}
   PATH.forEach(function(pt){box(pt[0],pt[1],'#fff');});
   for(var s=0;s<4;s++){
     var sp=PATH[START[s]];box(sp[0],sp[1],COL[s]);
@@ -293,6 +290,7 @@ function draw(){
   tri([[6,6],[9,6],[7.5,7.5]],COL[1]);
   tri([[9,6],[9,9],[7.5,7.5]],COL[2]);
   tri([[6,9],[9,9],[7.5,7.5]],COL[3]);
+  var pg=g.createRadialGradient(300,300,4,300,300,38);pg.addColorStop(0,'rgba(255,255,255,.95)');pg.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=pg;g.beginPath();g.arc(300,300,38,0,7);g.fill();
 
   if(!st)return;
   window.TK=[];
@@ -353,6 +351,43 @@ cv.onclick=function(e){
   }
 };
 
+var RM=matchMedia('(prefers-reduced-motion:reduce)').matches,HB=5,DUR=900,TILT=[-14,16];
+var FR={1:[0,0],2:[-90,0],3:[0,-90],4:[0,90],5:[90,0],6:[0,180]},PIPS=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
+var dw=$('dwrap'),cube=$('cube'),dbody=$('dbody'),dsh=$('dsh'),D={rx:0,ry:0,rz:0,mode:0,t0:0,last:0,ts:0,res:0,from:null,to:null};
+cube.innerHTML=[1,2,3,4,5,6].map(function(v){var x='';for(var k=0;k<9;k++)x+='<i'+(PIPS[v].indexOf(k)<0?' style="visibility:hidden"':'')+'></i>';return '<div class="f f'+v+'">'+x+'</div>';}).join('');
+function dPaint(h){
+  cube.style.transform='rotateX('+D.rx+'deg) rotateY('+D.ry+'deg) rotateZ('+D.rz+'deg)';
+  dbody.style.transform='translateY('+(-h)+'px)';
+  dsh.style.opacity=Math.max(.15,.5-h/70);dsh.style.transform='scale('+Math.max(.55,1-h/70)+')';
+}
+function dShow(v){if(D.mode)return;var f=FR[v||1];D.rx=f[0]+TILT[0];D.ry=f[1]+TILT[1];D.rz=0;dPaint(HB);}
+function tgt(c,b,sp){return b+360*(Math.ceil((c-b)/360)+sp);}
+function startRoll(res){
+  if(RM)return;
+  if(D.mode){if(res)D.res=res;return;}
+  D.mode=1;D.t0=D.last=performance.now();D.res=res||0;rolling=true;requestAnimationFrame(dLoop);
+}
+function endRoll(){D.mode=0;D.res=0;rolling=false;dShow(st&&st.dice);if(st)ui();}
+function dLoop(now){
+  if(!D.mode)return;
+  var dt=Math.min(40,now-D.last)/16.7,h=HB;D.last=now;
+  if(D.mode===1){
+    var e=now-D.t0;D.rx+=12*dt;D.ry+=16*dt;D.rz+=8*dt;
+    h=HB+Math.min(1,e/160)*(8+Math.abs(Math.sin(e/95))*16);
+    if(D.res&&e>=480){D.mode=2;D.ts=now;D.from=[D.rx,D.ry,D.rz];var f=FR[D.res];
+      D.to=[tgt(D.rx,f[0]+TILT[0],1),tgt(D.ry,f[1]+TILT[1],2),tgt(D.rz,0,1)];}
+    else if(e>4000&&!D.res){endRoll();return;}
+  }else{
+    var t=Math.min(1,(now-D.ts)/DUR),k=1-Math.pow(1-t,3);
+    D.rx=D.from[0]+(D.to[0]-D.from[0])*k;D.ry=D.from[1]+(D.to[1]-D.from[1])*k;D.rz=D.from[2]+(D.to[2]-D.from[2])*k;
+    h=HB+Math.abs(Math.sin(t*Math.PI*3))*16*Math.pow(1-t,2);
+    if(t>=1){endRoll();return;}
+  }
+  dPaint(h);requestAnimationFrame(dLoop);
+}
+function fit(){var w=cv.getBoundingClientRect().width||300;$('bw').style.setProperty('--d',Math.round(w*.105)+'px');}
+addEventListener('resize',fit);if(window.ResizeObserver)new ResizeObserver(fit).observe(cv);fit();
+dw.onclick=doRoll;dShow(1);
 draw();
 })();
 </script>
