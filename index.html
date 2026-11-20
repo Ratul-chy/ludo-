@@ -184,9 +184,9 @@ function setConn(ok){var p=$('connPill');p.textContent=ok?'● Online':'● Reco
 function connect(){
   $('lobby').hidden=true;$('game').hidden=false;
   ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
-  ws.onopen=function(){setConn(true);ws.send(JSON.stringify({t:'join',room:room,pid:pid,name:localStorage.name}));};
+  ws.onopen=function(){setConn(true);lastSeq=-1;lastMsg=Date.now();ws.send(JSON.stringify({t:'join',room:room,pid:pid,name:localStorage.name}));Q.splice(0).forEach(function(m){ws.send(m);});};
   ws.onmessage=function(e){
-    var d=JSON.parse(e.data);
+    var d=JSON.parse(e.data);lastMsg=Date.now();if(d.pong)return;
     if(d.err){$('msg').textContent=d.err;$('roll').disabled=true;toast(d.err);if(rolling&&!D.res)endRoll();return;}
     if(typeof d.seq==='number'&&d.seq<lastSeq)return;
     lastSeq=d.seq!=null?d.seq:lastSeq;
@@ -195,15 +195,19 @@ function connect(){
   ws.onclose=function(){setConn(false);setTimeout(connect,1500);};
 }
 
-setInterval(function(){ws&&ws.readyState===1&&ws.send('{"t":"ping"}');},25000);
-function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));}
+var lastMsg=Date.now(),Q=[],startT;
+function reconnect(){var o=ws;if(o){o.onclose=null;o.onmessage=null;try{o.close();}catch(x){}}setConn(false);connect();}
+setInterval(function(){if(ws&&ws.readyState===1){ws.send('{"t":"ping"}');if(Date.now()-lastMsg>11000)reconnect();}},4000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&Date.now()-lastMsg>11000)reconnect();});
+function send(o){var m=JSON.stringify(o);if(ws&&ws.readyState===1)ws.send(m);else{Q.push(m);if(Q.length>5)Q.shift();}}
 
 $('copy').onclick=function(){
   navigator.clipboard.writeText(location.href).then(function(){
     $('copy').textContent='Copied!';setTimeout(function(){$('copy').textContent='Copy link';},1500);
   },function(){toast('Copy failed — copy the URL manually');});
 };
-$('start').onclick=function(){send({t:'start'});};
+$('start').onclick=function(){var b=$('start');b.disabled=true;b.textContent='Starting…';$('msg').textContent='Starting game…';send({t:'start'});
+  clearTimeout(startT);startT=setTimeout(function(){if(!st||!st.started||st.winner!=null){toast('Reconnecting…');Q.push('{"t":"start"}');reconnect();}},2500);};
 function doRoll(){if(!st||rolling||$('roll').disabled)return;$('roll').disabled=true;startRoll(0);send({t:'roll'});}
 $('roll').onclick=doRoll;
 
@@ -253,7 +257,7 @@ function ui(){
     '</div>';
   }).join('');
   var showStart=s.host&&s.players.length>1&&(!s.started||s.winner!=null);
-  $('start').hidden=!showStart;
+  $('start').hidden=!showStart;$('start').disabled=false;
   if(showStart)$('start').textContent=(s.winner!=null)?'Play again':'Start game';
   var my=s.started&&s.winner==null&&s.turn===s.you;
   $('roll').disabled=!(my&&s.phase==='roll')||rolling;

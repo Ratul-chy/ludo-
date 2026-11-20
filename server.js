@@ -37,7 +37,7 @@ function assignHost(rm){
 wss.on('connection',ws=>{
   ws.on('message',raw=>{
     let m;try{m=JSON.parse(raw)}catch{return}
-    if(m.t==='ping')return;
+    if(m.t==='ping'){if(ws.readyState===1)ws.send('{"pong":1}');return;}
 
     if(m.t==='join'){
       const code=String(m.room||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
